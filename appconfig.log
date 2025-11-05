@@ -1,0 +1,27 @@
+nohup: ignoring input
+2025/11/05 07:32:44 ✅ Database initialized successfully
+2025/11/05 07:32:44 🚀 Burma 2D App Config Server starting on port 8080...
+2025/11/05 07:32:44 📡 Main endpoint: http://localhost:8080/api/burma2d/config
+2025/11/05 07:32:44 💾 Database: ./appconfig.db (SQLite3)
+2025/11/05 07:32:44 🏥 Health check:  http://localhost:8080/health
+2025/11/05 07:32:44 ✅ Server ready to serve app configuration!
+2025/11/05 07:32:51 ✅ App config sent to client
+[GIN] 2025/11/05 - 07:32:51 | 200 |    4.348337ms |       127.0.0.1 | GET      "/api/burma2d/config"
+2025/11/05 07:54:14 ✅ App config sent to client
+[GIN] 2025/11/05 - 07:54:14 | 200 |     695.775µs |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 07:54:23 ✅ App config sent to client
+[GIN] 2025/11/05 - 07:54:23 | 200 |     641.045µs |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 07:58:17 ✅ App config sent to client
+[GIN] 2025/11/05 - 07:58:17 | 200 |     723.879µs |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 07:59:15 ✅ App config sent to client
+[GIN] 2025/11/05 - 07:59:15 | 200 |     719.451µs |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 07:59:31 ✅ App config sent to client
+[GIN] 2025/11/05 - 07:59:31 | 200 |    1.397845ms |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 08:10:56 ✅ App config sent to client
+[GIN] 2025/11/05 - 08:10:56 | 200 |     239.691µs |   192.168.8.126 | GET      "/api/burma2d/config"
+2025/11/05 11:23:25 ✅ App config sent to client
+[GIN] 2025/11/05 - 11:23:25 | 200 |    1.009209ms |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 11:27:14 ✅ App config sent to client
+[GIN] 2025/11/05 - 11:27:14 | 200 |    1.496673ms |   192.168.8.127 | GET      "/api/burma2d/config"
+2025/11/05 11:40:48 ✅ App config sent to client
+[GIN] 2025/11/05 - 11:40:48 | 200 |     181.196µs |       127.0.0.1 | GET      "/api/burma2d/config"
