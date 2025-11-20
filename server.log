@@ -1,9 +1,18 @@
-nohup: ignoring input
-2025/11/05 06:38:55 ✅ Default data inserted
-2025/11/05 06:38:55 ✅ Database initialized successfully
-2025/11/05 06:38:55 🚀 Burma 2D App Config Server starting on port 8080...
-2025/11/05 06:38:55 📡 Main endpoint: http://localhost:8080/api/burma2d/config
-2025/11/05 06:38:55 💾 Database: ./appconfig.db (SQLite3)
-2025/11/05 06:38:55 🏥 Health check:  http://localhost:8080/health
-2025/11/05 06:38:55 ✅ Server ready to serve app configuration!
-[GIN] 2025/11/05 - 06:39:09 | 200 |      68.414µs |       127.0.0.1 | GET      "/health"
+2025/11/20 13:26:31 ✅ Default ad config inserted (60 seconds)
+2025/11/20 13:26:31 ✅ Database initialized successfully
+2025/11/20 13:26:31 🚀 Burma 2D App Config Server starting on port 8080...
+2025/11/20 13:26:31 📡 Main endpoint: http://localhost:8080/api/burma2d/config
+2025/11/20 13:26:31 💾 Database: ./appconfig.db (SQLite3)
+2025/11/20 13:26:31 🏥 Health check:  http://localhost:8080/health
+2025/11/20 13:26:31 ✅ Server ready to serve app configuration!
+[GIN] 2025/11/20 - 13:26:42 | 404 |       3.659µs |       127.0.0.1 | GET      "/api/burma2d/ad-config"
+2025/11/20 13:27:13 ✅ Ad config sent (timer: 60 seconds)
+[GIN] 2025/11/20 - 13:27:13 | 200 |     2.25822ms |       127.0.0.1 | GET      "/api/burma2d/adconfig"
+2025/11/20 13:27:33 ✅ App config sent to client (ad timer: %d seconds) 60
+[GIN] 2025/11/20 - 13:27:33 | 200 |     914.345µs |       127.0.0.1 | GET      "/api/burma2d/config"
+2025/11/20 13:27:49 ✅ Ad timer updated to 90 seconds
+[GIN] 2025/11/20 - 13:27:49 | 200 |   16.262983ms |       127.0.0.1 | POST     "/api/burma2d/adconfig"
+2025/11/20 13:27:58 ✅ Ad config sent (timer: 90 seconds)
+[GIN] 2025/11/20 - 13:27:58 | 200 |     101.023µs |       127.0.0.1 | GET      "/api/burma2d/adconfig"
+2025/11/20 13:28:06 ✅ Ad timer updated to 60 seconds
+[GIN] 2025/11/20 - 13:28:06 | 200 |   16.049776ms |       127.0.0.1 | POST     "/api/burma2d/adconfig"

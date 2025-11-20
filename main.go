@@ -43,10 +43,16 @@ type InAppMessage struct {
 	Dismissible bool   `json:"dismissible"`
 }
 
+// AdConfig represents ad-related configuration
+type AdConfig struct {
+	NativeAdTimerSeconds int `json:"native_ad_timer_seconds"` // Timer in seconds (60, 90, 120, etc.)
+}
+
 // AppConfig is the complete configuration response
 type AppConfig struct {
 	AppVersion    AppVersion     `json:"app_version"`
 	InAppMessages []InAppMessage `json:"in_app_messages"`
+	AdConfig      AdConfig       `json:"ad_config"`
 }
 
 // InitDB initializes the SQLite database
@@ -92,6 +98,12 @@ func InitDB(dbPath string) error {
 		show_once BOOLEAN NOT NULL,
 		dismissible BOOLEAN NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS ad_config (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		native_ad_timer_seconds INTEGER NOT NULL DEFAULT 60,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
@@ -212,6 +224,24 @@ func insertDefaultData() error {
 		}
 
 		log.Println("✅ Default data inserted")
+	}
+
+	// Insert default ad config if empty
+	var adCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM ad_config").Scan(&adCount)
+	if err != nil {
+		return err
+	}
+
+	if adCount == 0 {
+		_, err = db.Exec(`
+			INSERT INTO ad_config (id, native_ad_timer_seconds)
+			VALUES (1, 60)
+		`)
+		if err != nil {
+			return err
+		}
+		log.Println("✅ Default ad config inserted (60 seconds)")
 	}
 
 	return nil
@@ -359,6 +389,33 @@ func DeleteInAppMessage(id string) error {
 	return err
 }
 
+// GetAdConfig retrieves the ad configuration from database
+func GetAdConfig() (*AdConfig, error) {
+	var config AdConfig
+
+	err := db.QueryRow(`
+		SELECT native_ad_timer_seconds
+		FROM ad_config WHERE id = 1
+	`).Scan(&config.NativeAdTimerSeconds)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// UpdateAdConfig updates the ad configuration in database
+func UpdateAdConfig(config *AdConfig) error {
+	_, err := db.Exec(`
+		UPDATE ad_config
+		SET native_ad_timer_seconds = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = 1
+	`, config.NativeAdTimerSeconds)
+
+	return err
+}
+
 // GetAppConfigHandler returns the current app configuration
 func GetAppConfigHandler(c *gin.Context) {
 	version, err := GetAppVersion()
@@ -373,13 +430,20 @@ func GetAppConfigHandler(c *gin.Context) {
 		return
 	}
 
+	adConfig, err := GetAdConfig()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get ad config: " + err.Error()})
+		return
+	}
+
 	config := AppConfig{
 		AppVersion:    *version,
 		InAppMessages: messages,
+		AdConfig:      *adConfig,
 	}
 
 	c.JSON(http.StatusOK, config)
-	log.Println("✅ App config sent to client")
+	log.Println("✅ App config sent to client (ad timer: %d seconds)", adConfig.NativeAdTimerSeconds)
 }
 
 // UpdateAppConfigHandler allows updating the configuration
@@ -410,11 +474,55 @@ func UpdateAppConfigHandler(c *gin.Context) {
 		}
 	}
 
+	// Update ad config
+	if err := UpdateAdConfig(&newConfig.AdConfig); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ad config: " + err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Configuration updated successfully",
 		"config":  newConfig,
 	})
-	log.Println("✅ App config updated in database")
+	log.Println("✅ App config updated in database (ad timer: %d seconds)", newConfig.AdConfig.NativeAdTimerSeconds)
+}
+
+// GetAdConfigOnlyHandler returns only ad configuration
+func GetAdConfigOnlyHandler(c *gin.Context) {
+	adConfig, err := GetAdConfig()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, adConfig)
+	log.Printf("✅ Ad config sent (timer: %d seconds)", adConfig.NativeAdTimerSeconds)
+}
+
+// UpdateAdConfigOnlyHandler updates only the ad configuration
+func UpdateAdConfigOnlyHandler(c *gin.Context) {
+	var adConfig AdConfig
+	if err := c.ShouldBindJSON(&adConfig); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate timer value (must be between 30 and 300 seconds)
+	if adConfig.NativeAdTimerSeconds < 30 || adConfig.NativeAdTimerSeconds > 300 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Timer must be between 30 and 300 seconds"})
+		return
+	}
+
+	if err := UpdateAdConfig(&adConfig); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":                 "Ad config updated successfully",
+		"native_ad_timer_seconds": adConfig.NativeAdTimerSeconds,
+	})
+	log.Printf("✅ Ad timer updated to %d seconds", adConfig.NativeAdTimerSeconds)
 }
 
 // GetAppVersionHandler returns only version information
@@ -473,9 +581,11 @@ func main() {
 		// Individual endpoints
 		api.GET("/version", GetAppVersionHandler)
 		api.GET("/messages", GetInAppMessagesHandler)
+		api.GET("/adconfig", GetAdConfigOnlyHandler)
 
 		// Admin endpoint to update config
 		api.POST("/config", UpdateAppConfigHandler)
+		api.POST("/adconfig", UpdateAdConfigOnlyHandler)
 	}
 
 	// Health check
