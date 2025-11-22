@@ -48,11 +48,20 @@ type AdConfig struct {
 	NativeAdTimerSeconds int `json:"native_ad_timer_seconds"` // Timer in seconds (60, 90, 120, etc.)
 }
 
+// AdUnits represents AdMob ad unit IDs
+type AdUnits struct {
+	BannerAdUnit       string `json:"banner_ad_unit"`
+	InterstitialAdUnit string `json:"interstitial_ad_unit"`
+	NativeAdUnit       string `json:"native_ad_unit"`
+	AppOpenAdUnit      string `json:"app_open_ad_unit"`
+}
+
 // AppConfig is the complete configuration response
 type AppConfig struct {
 	AppVersion    AppVersion     `json:"app_version"`
 	InAppMessages []InAppMessage `json:"in_app_messages"`
 	AdConfig      AdConfig       `json:"ad_config"`
+	AdUnits       AdUnits        `json:"ad_units"`
 }
 
 // InitDB initializes the SQLite database
@@ -104,6 +113,15 @@ func InitDB(dbPath string) error {
 	CREATE TABLE IF NOT EXISTS ad_config (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		native_ad_timer_seconds INTEGER NOT NULL DEFAULT 60,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS ad_units (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		banner_ad_unit TEXT NOT NULL,
+		interstitial_ad_unit TEXT NOT NULL,
+		native_ad_unit TEXT NOT NULL,
+		app_open_ad_unit TEXT NOT NULL,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
@@ -242,6 +260,31 @@ func insertDefaultData() error {
 			return err
 		}
 		log.Println("✅ Default ad config inserted (60 seconds)")
+	}
+
+	// Insert default ad units if empty
+	var adUnitsCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM ad_units").Scan(&adUnitsCount)
+	if err != nil {
+		return err
+	}
+
+	if adUnitsCount == 0 {
+		_, err = db.Exec(`
+			INSERT INTO ad_units (
+				id, banner_ad_unit, interstitial_ad_unit, 
+				native_ad_unit, app_open_ad_unit
+			) VALUES (?, ?, ?, ?, ?)`,
+			1,
+			"ca-app-pub-3940256099942544/6300978111", // Test banner
+			"ca-app-pub-3940256099942544/1033173712", // Test interstitial
+			"ca-app-pub-3940256099942544/2247696110", // Test native
+			"ca-app-pub-3940256099942544/9257395921", // Test app open
+		)
+		if err != nil {
+			return err
+		}
+		log.Println("✅ Default ad units inserted (test ads)")
 	}
 
 	return nil
@@ -416,6 +459,38 @@ func UpdateAdConfig(config *AdConfig) error {
 	return err
 }
 
+// GetAdUnits retrieves the ad units from database
+func GetAdUnits() (*AdUnits, error) {
+	var units AdUnits
+
+	err := db.QueryRow(`
+		SELECT banner_ad_unit, interstitial_ad_unit, 
+		       native_ad_unit, app_open_ad_unit
+		FROM ad_units WHERE id = 1
+	`).Scan(&units.BannerAdUnit, &units.InterstitialAdUnit,
+		&units.NativeAdUnit, &units.AppOpenAdUnit)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &units, nil
+}
+
+// UpdateAdUnits updates the ad units in database
+func UpdateAdUnits(units *AdUnits) error {
+	_, err := db.Exec(`
+		UPDATE ad_units
+		SET banner_ad_unit = ?, interstitial_ad_unit = ?, 
+		    native_ad_unit = ?, app_open_ad_unit = ?,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = 1
+	`, units.BannerAdUnit, units.InterstitialAdUnit,
+		units.NativeAdUnit, units.AppOpenAdUnit)
+
+	return err
+}
+
 // GetAppConfigHandler returns the current app configuration
 func GetAppConfigHandler(c *gin.Context) {
 	version, err := GetAppVersion()
@@ -436,10 +511,17 @@ func GetAppConfigHandler(c *gin.Context) {
 		return
 	}
 
+	adUnits, err := GetAdUnits()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get ad units: " + err.Error()})
+		return
+	}
+
 	config := AppConfig{
 		AppVersion:    *version,
 		InAppMessages: messages,
 		AdConfig:      *adConfig,
+		AdUnits:       *adUnits,
 	}
 
 	c.JSON(http.StatusOK, config)
@@ -525,6 +607,48 @@ func UpdateAdConfigOnlyHandler(c *gin.Context) {
 	log.Printf("✅ Ad timer updated to %d seconds", adConfig.NativeAdTimerSeconds)
 }
 
+// GetAdUnitsOnlyHandler returns only ad units
+func GetAdUnitsOnlyHandler(c *gin.Context) {
+	units, err := GetAdUnits()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, units)
+	log.Println("✅ Ad units info sent")
+}
+
+// UpdateAdUnitsHandler updates ad units configuration
+func UpdateAdUnitsHandler(c *gin.Context) {
+	var units AdUnits
+	if err := c.ShouldBindJSON(&units); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate ad unit IDs (must not be empty)
+	if units.BannerAdUnit == "" || units.InterstitialAdUnit == "" ||
+		units.NativeAdUnit == "" || units.AppOpenAdUnit == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "All ad unit IDs must be provided"})
+		return
+	}
+
+	if err := UpdateAdUnits(&units); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":             "Ad units updated successfully",
+		"banner_ad_unit":      units.BannerAdUnit,
+		"interstitial_ad_unit": units.InterstitialAdUnit,
+		"native_ad_unit":      units.NativeAdUnit,
+		"app_open_ad_unit":    units.AppOpenAdUnit,
+	})
+	log.Println("✅ Ad units updated successfully")
+}
+
 // GetAppVersionHandler returns only version information
 func GetAppVersionHandler(c *gin.Context) {
 	version, err := GetAppVersion()
@@ -586,6 +710,10 @@ func main() {
 		// Admin endpoint to update config
 		api.POST("/config", UpdateAppConfigHandler)
 		api.POST("/adconfig", UpdateAdConfigOnlyHandler)
+
+		// Ad units endpoints
+		api.GET("/adunits", GetAdUnitsOnlyHandler)
+		api.POST("/adunits", UpdateAdUnitsHandler)
 	}
 
 	// Health check
@@ -614,7 +742,7 @@ func main() {
 		})
 	})
 
-	port := "8080"
+	port := "8585"
 	log.Printf("🚀 Burma 2D App Config Server starting on port %s...\n", port)
 	log.Printf("📡 Main endpoint: http://localhost:%s/api/burma2d/config\n", port)
 	log.Printf("💾 Database: %s (SQLite3)\n", dbPath)
