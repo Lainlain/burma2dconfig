@@ -536,6 +536,12 @@ func UpdateAppConfigHandler(c *gin.Context) {
 		return
 	}
 
+	// Update ad units only if provided (avoid overwriting with empty values)
+	adUnitsProvided := newConfig.AdUnits.BannerAdUnit != "" ||
+		newConfig.AdUnits.InterstitialAdUnit != "" ||
+		newConfig.AdUnits.NativeAdUnit != "" ||
+		newConfig.AdUnits.AppOpenAdUnit != ""
+
 	// Update app version
 	if err := UpdateAppVersion(&newConfig.AppVersion); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update version: " + err.Error()})
@@ -560,6 +566,20 @@ func UpdateAppConfigHandler(c *gin.Context) {
 	if err := UpdateAdConfig(&newConfig.AdConfig); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ad config: " + err.Error()})
 		return
+	}
+
+	// Update ad units (if provided)
+	if adUnitsProvided {
+		if newConfig.AdUnits.BannerAdUnit == "" || newConfig.AdUnits.InterstitialAdUnit == "" ||
+			newConfig.AdUnits.NativeAdUnit == "" || newConfig.AdUnits.AppOpenAdUnit == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "All ad unit IDs must be provided when updating ad units"})
+			return
+		}
+
+		if err := UpdateAdUnits(&newConfig.AdUnits); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ad units: " + err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -640,11 +660,11 @@ func UpdateAdUnitsHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":             "Ad units updated successfully",
-		"banner_ad_unit":      units.BannerAdUnit,
+		"message":              "Ad units updated successfully",
+		"banner_ad_unit":       units.BannerAdUnit,
 		"interstitial_ad_unit": units.InterstitialAdUnit,
-		"native_ad_unit":      units.NativeAdUnit,
-		"app_open_ad_unit":    units.AppOpenAdUnit,
+		"native_ad_unit":       units.NativeAdUnit,
+		"app_open_ad_unit":     units.AppOpenAdUnit,
 	})
 	log.Println("✅ Ad units updated successfully")
 }
